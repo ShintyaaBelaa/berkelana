@@ -161,6 +161,16 @@ CREATE TABLE IF NOT EXISTS log_aktivitas (
     keterangan  TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS pengguna (
+    id_user        INTEGER PRIMARY KEY AUTOINCREMENT,
+    username       TEXT NOT NULL COLLATE NOCASE UNIQUE
+                   CHECK (length(trim(username)) > 0),
+    password_hash  TEXT NOT NULL CHECK (length(password_hash) > 0),
+    aktif          INTEGER NOT NULL DEFAULT 1 CHECK (aktif IN (0, 1)),
+    dibuat_pada    TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
+    login_terakhir TEXT
+);
+
 CREATE INDEX IF NOT EXISTS idx_pelanggan_nama
     ON pelanggan (nama_pelanggan);
 CREATE INDEX IF NOT EXISTS idx_pelanggan_telepon
@@ -478,6 +488,205 @@ def _isi_data_contoh(conn: sqlite3.Connection) -> None:
         None,
         "Database dibuat dan diisi data contoh Travel Berkelana.",
     )
+
+
+# ---------------------------------------------------------------------------
+# Pengguna
+# ---------------------------------------------------------------------------
+
+POLA_USERNAME = re.compile(r"^[A-Za-z0-9._-]{3,30}$")
+
+
+def _validasi_username(
+    conn: sqlite3.Connection,
+    username: str,
+    exclude_id: int | None = None,
+) -> str:
+    username_bersih = _bersihkan_teks(username)
+    if not username_bersih:
+        raise KesalahanBisnis("Username wajib diisi.")
+    if not POLA_USERNAME.fullmatch(username_bersih):
+        raise KesalahanBisnis(
+            "Username hanya boleh berisi huruf, angka, titik, garis bawah, atau "
+            "tanda hubung, dengan panjang 3 sampai 30 karakter."
+        )
+    query = "SELECT username FROM pengguna WHERE username = ? COLLATE NOCASE"
+    params: list[Any] = [username_bersih]
+    if exclude_id is not None:
+        query += " AND id_user <> ?"
+        params.append(exclude_id)
+    duplikat = conn.execute(query, params).fetchone()
+    if duplikat:
+        raise KesalahanBisnis(
+            f"Username '{username_bersih}' sudah dipakai. Pilih username lain."
+        )
+    return username_bersih
+
+
+def buat_pengguna(username: str, password_hash: str) -> dict[str, Any]:
+    """Menambahkan akun pengguna baru. Password harus sudah di-hash."""
+    if not password_hash:
+        raise KesalahanBisnis("Hash password tidak boleh kosong.")
+    with koneksi() as conn:
+        username_bersih = _validasi_username(conn, username)
+        cur = conn.execute(
+            "INSERT INTO pengguna (username, password_hash) VALUES (?, ?)",
+            (username_bersih, password_hash),
+        )
+        _catat_log(
+            conn,
+            "TAMBAH",
+            "PENGGUNA",
+            username_bersih,
+            f"Menambahkan akun pengguna {username_bersih}.",
+        )
+        row = conn.execute(
+            "SELECT * FROM pengguna WHERE id_user = ?", (cur.lastrowid,)
+        ).fetchone()
+        return dict(row)
+
+
+def daftar_pengguna() -> list[dict[str, Any]]:
+    with koneksi() as conn:
+        rows = conn.execute(
+            "SELECT * FROM pengguna ORDER BY username COLLATE NOCASE"
+        ).fetchall()
+        return [dict(row) for row in rows]
+
+
+def cari_pengguna(username: str) -> dict[str, Any] | None:
+    with koneksi() as conn:
+        row = conn.execute(
+            "SELECT * FROM pengguna WHERE username = ? COLLATE NOCASE",
+            (_bersihkan_teks(username),),
+        ).fetchone()
+        return dict(row) if row else None
+
+
+def ambil_pengguna(id_user: int) -> dict[str, Any] | None:
+    with koneksi() as conn:
+        row = conn.execute(
+            "SELECT * FROM pengguna WHERE id_user = ?", (id_user,)
+        ).fetchone()
+        return dict(row) if row else None
+
+
+def jumlah_pengguna_aktif() -> int:
+    with koneksi() as conn:
+        return int(
+            conn.execute(
+                "SELECT COUNT(*) AS n FROM pengguna WHERE aktif = 1"
+            ).fetchone()["n"]
+        )
+
+
+def ubah_password_pengguna(id_user: int, password_hash_baru: str) -> None:
+    with koneksi() as conn:
+        row = conn.execute(
+            "SELECT * FROM pengguna WHERE id_user = ?", (id_user,)
+        ).fetchone()
+        if not row:
+            raise KesalahanBisnis("Pengguna tidak ditemukan.")
+        conn.execute(
+            "UPDATE pengguna SET password_hash = ? WHERE id_user = ?",
+            (password_hash_baru, id_user),
+        )
+        _catat_log(
+            conn,
+            "UBAH",
+            "PENGGUNA",
+            row["username"],
+            f"Mengubah password akun {row['username']}.",
+        )
+
+
+def atur_status_pengguna(id_user: int, aktif: bool) -> dict[str, Any]:
+    with koneksi() as conn:
+        row = conn.execute(
+            "SELECT * FROM pengguna WHERE id_user = ?", (id_user,)
+        ).fetchone()
+        if not row:
+            raise KesalahanBisnis("Pengguna tidak ditemukan.")
+        if row["aktif"] and not aktif:
+            jumlah = conn.execute(
+                "SELECT COUNT(*) AS n FROM pengguna WHERE aktif = 1"
+            ).fetchone()["n"]
+            if jumlah <= 1:
+                raise KesalahanBisnis(
+                    "Akun pengguna aktif terakhir tidak dapat dinonaktifkan."
+                )
+        conn.execute(
+            "UPDATE pengguna SET aktif = ? WHERE id_user = ?",
+            (1 if aktif else 0, id_user),
+        )
+        _catat_log(
+            conn,
+            "UBAH",
+            "PENGGUNA",
+            row["username"],
+            f"{'Mengaktifkan' if aktif else 'Menonaktifkan'} akun {row['username']}.",
+        )
+        updated = conn.execute(
+            "SELECT * FROM pengguna WHERE id_user = ?", (id_user,)
+        ).fetchone()
+        return dict(updated)
+
+
+def hapus_pengguna(id_user: int) -> None:
+    with koneksi() as conn:
+        row = conn.execute(
+            "SELECT * FROM pengguna WHERE id_user = ?", (id_user,)
+        ).fetchone()
+        if not row:
+            raise KesalahanBisnis("Pengguna tidak ditemukan.")
+        jumlah = conn.execute("SELECT COUNT(*) AS n FROM pengguna").fetchone()["n"]
+        if jumlah <= 1:
+            raise KesalahanBisnis("Akun pengguna terakhir tidak dapat dihapus.")
+        conn.execute("DELETE FROM pengguna WHERE id_user = ?", (id_user,))
+        _catat_log(
+            conn,
+            "HAPUS",
+            "PENGGUNA",
+            row["username"],
+            f"Menghapus akun pengguna {row['username']}.",
+        )
+
+
+def catat_login_pengguna(id_user: int) -> None:
+    with koneksi() as conn:
+        row = conn.execute(
+            "SELECT * FROM pengguna WHERE id_user = ?", (id_user,)
+        ).fetchone()
+        if not row:
+            return
+        conn.execute(
+            "UPDATE pengguna SET login_terakhir = datetime('now', 'localtime') "
+            "WHERE id_user = ?",
+            (id_user,),
+        )
+        _catat_log(
+            conn,
+            "MASUK",
+            "PENGGUNA",
+            row["username"],
+            f"Login berhasil sebagai {row['username']}.",
+        )
+
+
+def catat_logout_pengguna(id_user: int) -> None:
+    with koneksi() as conn:
+        row = conn.execute(
+            "SELECT * FROM pengguna WHERE id_user = ?", (id_user,)
+        ).fetchone()
+        if not row:
+            return
+        _catat_log(
+            conn,
+            "KELUAR",
+            "PENGGUNA",
+            row["username"],
+            f"Logout dari sistem oleh {row['username']}.",
+        )
 
 
 # ---------------------------------------------------------------------------

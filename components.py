@@ -602,6 +602,66 @@ div[data-testid="stCode"] pre {
     border: 1px solid var(--bk-line) !important;
     border-radius: 12px !important;
 }
+.st-key-bk_login_card {
+    width: min(430px, 100%);
+}
+.st-key-bk_login_card > div {
+    background: #ffffff;
+    border: 1px solid var(--bk-line);
+    border-radius: 18px;
+    padding: 1.6rem 1.5rem 1.3rem 1.5rem;
+    box-shadow: 0 18px 44px rgba(7, 54, 108, 0.13);
+}
+.bk-login-logo {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 0.85rem;
+}
+.bk-login-logo img {
+    width: 96px;
+    height: auto;
+    border-radius: 14px;
+    box-shadow: 0 10px 24px rgba(7, 54, 108, 0.18);
+}
+.bk-login-title {
+    text-align: center;
+    margin-bottom: 0.15rem;
+}
+.bk-login-title h2 {
+    margin: 0;
+    font-size: 1.4rem;
+    color: var(--bk-brand-dark);
+}
+.bk-login-title p {
+    margin: 0.25rem 0 0 0;
+    font-size: 0.85rem;
+    color: var(--bk-muted);
+}
+.bk-login-foot {
+    text-align: center;
+    font-size: 0.75rem;
+    color: var(--bk-muted);
+    margin-top: 0.9rem;
+}
+.bk-user-cell {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+}
+.bk-avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    background: linear-gradient(145deg, #5c9fd6, #1e68af);
+    color: #ffffff;
+    font-weight: 800;
+    font-size: 0.85rem;
+    flex: none;
+}
+.bk-user-cell b { color: var(--bk-ink); font-size: 0.9rem; }
+.bk-user-cell span { color: var(--bk-muted); font-size: 0.75rem; }
 .bk-log-chip {
     display: inline-block;
     padding: 0.15rem 0.48rem;
@@ -636,6 +696,11 @@ def _logo_data_uri() -> str:
         return ""
     data = base64.b64encode(berkas.read_bytes()).decode("ascii")
     return f"data:image/png;base64,{data}"
+
+
+def logo_data_uri() -> str:
+    """Logo sebagai data URI (dipakai di halaman login)."""
+    return _logo_data_uri()
 
 
 def sidebar_brand() -> None:

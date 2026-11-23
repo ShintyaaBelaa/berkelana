@@ -5,8 +5,9 @@ membantu petugas loket mencatat pelanggan, mengelola rute dan kursi, membuat
 pemesanan tiket, memeriksa ketersediaan kursi, mencetak nota, serta mencari dan
 membatalkan transaksi.
 
-Aplikasi dibuat **tanpa login** dan sepenuhnya berjalan lokal di komputer
-(SQLite tidak memerlukan server database terpisah).
+Aplikasi memakai **login username + password** dan sepenuhnya berjalan lokal di
+komputer (SQLite tidak memerlukan server database terpisah). Password disimpan
+sebagai hash **bcrypt** (cost factor 12), bukan teks biasa.
 
 ---
 
@@ -20,12 +21,13 @@ Aplikasi dibuat **tanpa login** dan sepenuhnya berjalan lokal di komputer
 | **Data Kursi** | Denah kursi, tambah, cari, ubah nomor/status, dan hapus kursi yang belum terpakai. |
 | **Pemesanan Tiket** | Tambah pelanggan cepat, pilih pelanggan/rute/tanggal/kode jadwal, denah kursi real-time, pilih beberapa kursi, hitung total otomatis, simpan transaksi, dan unduh nota. |
 | **Riwayat Pemesanan** | Pencarian multi-kriteria, filter rute dan rentang tanggal, unduh CSV, detail transaksi, nota, dan pembatalan dengan konfirmasi. |
-| **Log Aktivitas** | Jejak audit otomatis untuk penambahan, perubahan, penghapusan, dan pembatalan data. Bisa difilter dan diunduh CSV. |
+| **Log Aktivitas** | Jejak audit otomatis untuk penambahan, perubahan, penghapusan, pembatalan data, dan aktivitas login. Bisa difilter dan diunduh CSV. |
+| **Kelola Pengguna** | Tambah akun petugas, nonaktifkan/aktifkan akses, ganti password, dan hapus akun. Akun terakhir tidak dapat dinonaktifkan atau dihapus. |
 | **Kreator** | Identitas tim penyusun: institusi, jurusan, program studi, kelas, dan empat anggota kelompok. Bisa diunduh sebagai teks. |
 
 ### Yang sengaja tidak dibuat (sesuai ruang lingkup)
 
-- Login dan pembagian hak akses
+- Pembagian hak akses / role bertingkat (seluruh akun setara)
 - Pemesanan mandiri oleh pelanggan
 - Pembayaran digital/integrasi bank
 - Refund otomatis (pengembalian dana di luar sistem)
@@ -67,6 +69,15 @@ Browser akan terbuka otomatis pada alamat `http://localhost:8501`.
 > Jika PowerShell menolak aktivasi virtual environment, jalankan
 > `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` lalu ulangi aktivasi.
 
+### 5. Buat akun pertama
+
+Saat aplikasi dibuka dan tabel `pengguna` masih kosong, muncul halaman
+**Buat Akun Pertama**. Isi username dan password (minimal 8 karakter), lalu
+akun tersebut langsung aktif dan Anda masuk ke aplikasi.
+
+Pada penggunaan berikutnya, halaman yang muncul adalah form login biasa.
+Tambahkan atau nonaktifkan akun lain melalui menu **Kelola Pengguna**.
+
 ### Data contoh
 
 Saat aplikasi pertama kali dijalankan, file `berkelana.db` dibuat otomatis
@@ -107,7 +118,7 @@ tidak mengubah data aplikasi:
 python -m unittest discover -s tests -v
 ```
 
-Cakupan pengujian (34 skenario):
+Cakupan pengujian (56 skenario):
 
 - Pelanggan ganda dan validasi nomor telepon
 - Validasi rute (kota asal ≠ tujuan, tarif > 0, rute ganda ditolak)
@@ -127,6 +138,14 @@ Cakupan pengujian (34 skenario):
 - Kode pemesanan tidak digunakan ulang setelah pembatalan
 - Trigger database sebagai pengaman terakhir kursi ganda
 - Inisialisasi data contoh (5 rute, 15 jadwal, 14 transaksi)
+- Hash bcrypt: salt acak, password tidak tersimpan apa adanya
+- Verifikasi password benar/salah dan penolakan hash rusak
+- Password terlalu pendek (< 8 karakter) dan melebihi 72 byte ditolak
+- Username ganda (tidak peka huruf besar/kecil) dan username berpola terlarang ditolak
+- Login berhasil, login gagal, akun nonaktif ditolak, logout menutup sesi
+- Ganti password: password lama salah dan password baru sama dengan lama ditolak
+- Akun terakhir tidak dapat dinonaktifkan maupun dihapus
+- Waktu login terakhir tercatat pada tabel `pengguna`
 
 ---
 
@@ -134,8 +153,9 @@ Cakupan pengujian (34 skenario):
 
 ```text
 berkelana_travel/
-├── app.py                  # Titik masuk Streamlit, navigasi, sidebar
+├── app.py                  # Titik masuk Streamlit, gerbang login, navigasi, sidebar
 ├── database.py             # Skema SQLite, CRUD, transaksi, aturan bisnis
+├── auth.py                 # Hashing bcrypt, validasi password, sesi login
 ├── utils.py                # Format rupiah/tanggal, label waktu, teks nota
 ├── components.py           # CSS, kartu metrik, denah kursi, nota, badge
 ├── assets/
@@ -150,9 +170,12 @@ berkelana_travel/
 │   ├── rute.py             # Pengelolaan rute & tarif
 │   ├── kursi.py            # Pengelolaan kursi
 │   ├── log.py              # Log aktivitas
+│   ├── login.py            # Gerbang login & pembuatan akun pertama
+│   ├── pengguna.py         # Pengelolaan akun pengguna
 │   └── kreator.py          # Identitas tim kreator
 ├── tests/
-│   └── test_database.py    # 34 pengujian aturan bisnis
+│   ├── test_database.py    # 34 pengujian aturan bisnis
+│   └── test_auth.py        # 22 pengujian autentikasi & pengguna
 ├── .streamlit/
 │   └── config.toml         # Tema warna aplikasi
 ├── requirements.txt
@@ -166,6 +189,17 @@ Pemisahan antarmuka (`tampilan/`, `components.py`) dan pengelolaan database
 ---
 
 ## 🗄️ Struktur Database
+
+### `pengguna`
+
+| Kolom | Keterangan |
+|---|---|
+| `id_user` | Primary key teknis |
+| `username` | Unik, tidak peka huruf besar/kecil, pola 3–30 karakter |
+| `password_hash` | Hash bcrypt (salt + cost factor 12), bukan password asli |
+| `aktif` | `1` aktif / `0` nonaktif |
+| `dibuat_pada` | Waktu akun dibuat |
+| `login_terakhir` | Waktu login sukses terakhir |
 
 ### `pelanggan`
 
@@ -272,18 +306,21 @@ Trigger `trg_cegah_kursi_ganda` menolak kursi yang sama pada kombinasi
 
 ## 🧭 Alur Pemakaian Singkat
 
-1. Buka menu **Pelanggan** → tambahkan pelanggan.
-2. Buka menu **Rute & Tarif** → pastikan rute aktif dan tarif benar.
-3. Buka menu **Data Kursi** → atur kursi yang dijual.
-4. Buka menu **Pemesanan Tiket**:
+1. Masuk dengan akun yang sudah dibuat (buat akun pertama saat aplikasi dibuka).
+2. Buka menu **Pelanggan** → tambahkan pelanggan.
+3. Buka menu **Rute & Tarif** → pastikan rute aktif dan tarif benar.
+4. Buka menu **Data Kursi** → atur kursi yang dijual.
+5. Buka menu **Pemesanan Tiket**:
    - Pilih pelanggan.
    - Pilih rute, tanggal, dan kode jadwal (07:00/12:00/17:00 WIB).
    - Pilih kursi yang berwarna hijau.
    - Periksa total, lalu konfirmasi.
    - Unduh/cetak nota.
-5. Buka menu **Riwayat Pemesanan** untuk mencari transaksi, membuka nota,
+6. Buka menu **Riwayat Pemesanan** untuk mencari transaksi, membuka nota,
    atau membatalkan pemesanan.
-6. Pantau operasional pada menu **Dashboard** dan **Log Aktivitas**.
+7. Pantau operasional pada menu **Dashboard** dan **Log Aktivitas**.
+8. Kelola akses petugas pada menu **Kelola Pengguna**, lalu keluar lewat tombol
+   **Keluar** di sidebar.
 
 ---
 
@@ -296,12 +333,15 @@ Trigger `trg_cegah_kursi_ganda` menolak kursi yang sama pada kombinasi
 | Data contoh tidak muncul | Database sudah ada. Hapus `berkelana.db*` lalu jalankan ulang. |
 | `streamlit` tidak dikenali | Aktifkan virtual environment atau gunakan `python -m streamlit run app.py`. |
 | Tampilan CSS tidak berubah | Lakukan hard refresh browser (`Ctrl+F5`). |
+| Lupa password | Akun terakhir tidak dapat dihapus/dinonaktifkan. Hapus baris pada tabel `pengguna` di `berkelana.db` (hapus semua baris bila perlu), lalu jalankan ulang untuk membuat akun baru. |
 
 ---
 
 ## 🔐 Catatan
 
-- Tidak ada autentikasi/login; aplikasi dirancang untuk komputer petugas loket.
+- Autentikasi memakai username + password dengan hash bcrypt (cost factor 12,
+  salt acak per password). Seluruh akun setara, belum ada pembagian role.
+- Sesi login disimpan di `st.session_state`; menutup tab/browser mengakhiri sesi.
 - Semua data tersimpan di `berkelana.db` pada folder proyek.
 - Pembayaran, refund, dan pengiriman tiket dilakukan di luar sistem.
 - Nota tersedia sebagai file teks yang dapat diunduh dan dicetak.

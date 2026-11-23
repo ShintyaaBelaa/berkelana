@@ -58,6 +58,7 @@ def render() -> None:
                 "RUTE",
                 "KURSI",
                 "PEMESANAN",
+                "PENGGUNA",
                 "SISTEM",
             ],
             key="filter_entitas_log",

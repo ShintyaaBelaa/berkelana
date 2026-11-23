@@ -20,9 +20,21 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+import auth
 import components as ui
 import database as db
-from tampilan import dashboard, kreator, kursi, log, pelanggan, pemesanan, riwayat, rute
+from tampilan import (
+    dashboard,
+    kreator,
+    kursi,
+    log,
+    login,
+    pelanggan,
+    pemesanan,
+    pengguna,
+    riwayat,
+    rute,
+)
 from utils import rupiah, tanggal_indo
 
 
@@ -44,6 +56,7 @@ HALAMAN = {
     "Pemesanan Tiket": pemesanan.render,
     "Riwayat Pemesanan": riwayat.render,
     "Log Aktivitas": log.render,
+    "Kelola Pengguna": pengguna.render,
     "Kreator": kreator.render,
 }
 
@@ -55,11 +68,18 @@ IKON_NAVIGASI = {
     "Pemesanan Tiket": "🎫  Pemesanan Tiket",
     "Riwayat Pemesanan": "🕘  Riwayat Pemesanan",
     "Log Aktivitas": "🧾  Log Aktivitas",
+    "Kelola Pengguna": "🔐  Kelola Pengguna",
     "Kreator": "🎓  Kreator",
 }
 
 with st.sidebar:
     ui.sidebar_brand()
+
+if not auth.sudah_login():
+    login.render()
+    st.stop()
+
+with st.sidebar:
     halaman = st.radio(
         "Navigasi",
         options=list(HALAMAN),
@@ -83,7 +103,11 @@ with st.sidebar:
         f"📅 <b>{tanggal_indo(date.today())}</b><br><br>{ringkasan_sidebar}"
     )
     st.caption("Database lokal: berkelana.db")
-    st.caption("Tanpa login · Sesuai ruang lingkup sistem")
+    st.caption(f"👤 Masuk sebagai **{auth.pengguna_sekarang()}**")
+    if st.button("🚪 Keluar", width="stretch", key="tombol_keluar"):
+        db.catat_logout_pengguna(int(st.session_state[auth.KUNCI_ID]))
+        auth.logout()
+        st.rerun()
 
 ui.tampilkan_flash()
 HALAMAN[halaman]()
