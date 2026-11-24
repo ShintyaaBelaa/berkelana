@@ -1,8 +1,8 @@
 """Halaman gerbang login.
 
-Dua mode tampilan:
-- Belum ada pengguna sama sekali -> form pembuatan akun pertama.
-- Sudah ada pengguna            -> form login biasa.
+Dua tab: Masuk (sign in) untuk akun yang sudah terdaftar dan Daftar (sign up)
+untuk membuat akun baru. Saat tabel pengguna masih kosong, tab Daftar
+dibuka lebih dulu karena belum ada akun yang bisa masuk.
 """
 
 from __future__ import annotations
@@ -28,35 +28,29 @@ def _kartu(judul: str, subjudul: str) -> None:
     )
 
 
-def _form_akun_pertama() -> None:
-    st.markdown(
-        """
-        <div class="bk-note">
-            <b>Belum ada akun.</b> Buat akun petugas pertama untuk mulai memakai
-            sistem. Password disimpan sebagai hash bcrypt, bukan teks biasa.
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-    with st.form("form_akun_pertama", clear_on_submit=True):
+def _form_daftar() -> None:
+    with st.form("form_daftar", clear_on_submit=True):
         username = st.text_input(
             "Username *",
             placeholder="Contoh: athifah",
+            key="daftar_username",
             help="3-30 karakter: huruf, angka, titik, garis bawah, atau tanda hubung.",
         )
         password = st.text_input(
             "Password *",
             type="password",
             placeholder="Minimal 8 karakter",
+            key="daftar_password",
         )
         konfirmasi = st.text_input(
             "Ulangi password *",
             type="password",
+            key="daftar_konfirmasi",
         )
         st.caption("* Wajib diisi. Password di-hash dengan bcrypt (cost factor 12).")
-        disimpan = st.form_submit_button("Buat akun & masuk", type="primary")
+        daftar = st.form_submit_button("Daftar sekarang", type="primary")
 
-    if not disimpan:
+    if not daftar:
         return
 
     if password != konfirmasi:
@@ -72,7 +66,7 @@ def _form_akun_pertama() -> None:
         return
 
     auth.buka_sesi(pengguna)
-    ui.set_flash("success", f"Akun {pengguna['username']} dibuat. Selamat datang!")
+    ui.set_flash("success", f"Akun {pengguna['username']} berhasil dibuat. Selamat datang!")
     st.rerun()
 
 
@@ -109,12 +103,35 @@ def render() -> None:
     with tengah:
         with st.container(key="bk_login_card"):
             belum_ada_akun = not db.daftar_pengguna()
+            _kartu(
+                "Berkelana Travel",
+                "Sistem Administrasi Perjalanan"
+                if belum_ada_akun
+                else "Masuk atau daftar untuk mengelola data perjalanan",
+            )
+
             if belum_ada_akun:
-                _kartu("Buat Akun Pertama", "Satu langkah lagi sebelum masuk ke sistem")
-                _form_akun_pertama()
+                st.markdown(
+                    """
+                    <div class="bk-note">
+                        <b>Belum ada akun.</b> Daftarkan akun petugas pertama untuk
+                        mulai memakai sistem. Password disimpan sebagai hash bcrypt,
+                        bukan teks biasa.
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+                tab_daftar, tab_masuk = st.tabs(["📝 Daftar", "🔑 Masuk"])
+                with tab_daftar:
+                    _form_daftar()
+                with tab_masuk:
+                    _form_login()
             else:
-                _kartu("Login Berkelana Travel", "Masuk untuk mengelola data perjalanan")
-                _form_login()
+                tab_masuk, tab_daftar = st.tabs(["🔑 Masuk", "📝 Daftar"])
+                with tab_masuk:
+                    _form_login()
+                with tab_daftar:
+                    _form_daftar()
         st.markdown(
             '<div class="bk-login-foot">Berkelana Travel · Sistem Administrasi Perjalanan</div>',
             unsafe_allow_html=True,

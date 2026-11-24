@@ -5,8 +5,9 @@ membantu petugas loket mencatat pelanggan, mengelola rute dan kursi, membuat
 pemesanan tiket, memeriksa ketersediaan kursi, mencetak nota, serta mencari dan
 membatalkan transaksi.
 
-Aplikasi memakai **login username + password** dan sepenuhnya berjalan lokal di
-komputer (SQLite tidak memerlukan server database terpisah). Password disimpan
+Aplikasi memakai **login username + password** dengan halaman **Masuk (sign in)**
+dan **Daftar (sign up)**, dan sepenuhnya berjalan lokal di komputer
+(SQLite tidak memerlukan server database terpisah). Password disimpan
 sebagai hash **bcrypt** (cost factor 12), bukan teks biasa.
 
 ---
@@ -23,6 +24,7 @@ sebagai hash **bcrypt** (cost factor 12), bukan teks biasa.
 | **Riwayat Pemesanan** | Pencarian multi-kriteria, filter rute dan rentang tanggal, unduh CSV, detail transaksi, nota, dan pembatalan dengan konfirmasi. |
 | **Log Aktivitas** | Jejak audit otomatis untuk penambahan, perubahan, penghapusan, pembatalan data, dan aktivitas login. Bisa difilter dan diunduh CSV. |
 | **Kelola Pengguna** | Tambah akun petugas, nonaktifkan/aktifkan akses, ganti password, dan hapus akun. Akun terakhir tidak dapat dinonaktifkan atau dihapus. |
+| **Masuk & Daftar** | Halaman awal aplikasi dengan tab **Masuk** (sign in) dan **Daftar** (sign up). Password di-hash bcrypt. |
 | **Kreator** | Identitas tim penyusun: institusi, jurusan, program studi, kelas, dan empat anggota kelompok. Bisa diunduh sebagai teks. |
 
 ### Yang sengaja tidak dibuat (sesuai ruang lingkup)
@@ -69,14 +71,19 @@ Browser akan terbuka otomatis pada alamat `http://localhost:8501`.
 > Jika PowerShell menolak aktivasi virtual environment, jalankan
 > `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` lalu ulangi aktivasi.
 
-### 5. Buat akun pertama
+### 5. Daftar atau masuk
 
-Saat aplikasi dibuka dan tabel `pengguna` masih kosong, muncul halaman
-**Buat Akun Pertama**. Isi username dan password (minimal 8 karakter), lalu
-akun tersebut langsung aktif dan Anda masuk ke aplikasi.
+Halaman awal aplikasi punya dua tab:
 
-Pada penggunaan berikutnya, halaman yang muncul adalah form login biasa.
-Tambahkan atau nonaktifkan akun lain melalui menu **Kelola Pengguna**.
+- **🔑 Masuk** — sign in dengan username + password yang sudah terdaftar.
+- **📝 Daftar** — sign up, membuat akun baru langsung aktif dan otomatis masuk.
+
+Password minimal 8 karakter dan disimpan sebagai hash bcrypt, tidak pernah
+dalam bentuk teks biasa. Saat tabel `pengguna` masih kosong, tab **Daftar**
+dibuka lebih dulu karena belum ada akun yang bisa masuk.
+
+PETUGAS yang sudah masuk juga dapat menambah, menonaktifkan, atau menghapus
+akun lain melalui menu **Kelola Pengguna**.
 
 ### Data contoh
 
