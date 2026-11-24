@@ -1,7 +1,7 @@
 """Halaman gerbang login.
 
-Dua tab: Masuk (sign in) untuk akun yang sudah terdaftar dan Daftar (sign up)
-untuk membuat akun baru. Saat tabel pengguna masih kosong, tab Daftar
+Dua tab: Sign In untuk akun yang sudah terdaftar dan Sign Up untuk
+membuat akun baru. Saat tabel pengguna masih kosong, tab Sign Up
 dibuka lebih dulu karena belum ada akun yang bisa masuk.
 """
 
@@ -121,13 +121,13 @@ def render() -> None:
                     """,
                     unsafe_allow_html=True,
                 )
-                tab_daftar, tab_masuk = st.tabs(["📝 Daftar", "🔑 Masuk"])
+                tab_daftar, tab_masuk = st.tabs(["Sign Up", "Sign In"])
                 with tab_daftar:
                     _form_daftar()
                 with tab_masuk:
                     _form_login()
             else:
-                tab_masuk, tab_daftar = st.tabs(["🔑 Masuk", "📝 Daftar"])
+                tab_masuk, tab_daftar = st.tabs(["Sign In", "Sign Up"])
                 with tab_masuk:
                     _form_login()
                 with tab_daftar:
