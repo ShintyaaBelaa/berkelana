@@ -32,7 +32,7 @@ def _form_daftar() -> None:
     with st.form("form_daftar", clear_on_submit=True):
         username = st.text_input(
             "Username *",
-            placeholder="Contoh: athifah",
+            placeholder="Contoh: bela",
             key="daftar_username",
             help="3-30 karakter: huruf, angka, titik, garis bawah, atau tanda hubung.",
         )
