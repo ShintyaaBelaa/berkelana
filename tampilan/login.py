@@ -74,7 +74,7 @@ def _form_login() -> None:
     with st.form("form_login"):
         username = st.text_input(
             "Username *",
-            placeholder="Masukkan username",
+            placeholder="Contoh: bela",
             key="login_username",
         )
         password = st.text_input(
